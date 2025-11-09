@@ -1,6 +1,7 @@
+from typing import Annotated
 from fastapi import Depends
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session
 
 db_url = "sqlite:///./taskflow.db"
 
@@ -19,3 +20,6 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+db_dependency = Annotated[Session, Depends(get_db)]

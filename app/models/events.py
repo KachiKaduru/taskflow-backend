@@ -7,19 +7,10 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, ForeignKey
 
 from app.db.schema import Base
-
-
-def _to_camel(s: str) -> str:
-    parts = s.split("_")
-    return parts[0] + "".join(p.title() for p in parts[1:])
+from app.core.utils.helpers import to_camel_case
 
 
 class Event(Base):
-    """SQLAlchemy ORM table for events.
-
-    Fields map to the frontend `newEvent` shape sent in the prompt.
-    """
-
     __tablename__ = "events"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -46,7 +37,7 @@ class EventCreate(BaseModel):
     is_virtual: bool = False
     event_type: Optional[str] = None
 
-    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 
 
 class EventRead(EventCreate):
@@ -54,5 +45,5 @@ class EventRead(EventCreate):
 
     # Allow building from ORM attributes and output aliases in camelCase
     model_config = ConfigDict(
-        from_attributes=True, alias_generator=_to_camel, populate_by_name=True
+        from_attributes=True, alias_generator=to_camel_case, populate_by_name=True
     )

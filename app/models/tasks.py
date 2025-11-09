@@ -7,11 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 
 from app.db.schema import Base
-
-
-def _to_camel(s: str) -> str:
-    parts = s.split("_")
-    return parts[0] + "".join(p.title() for p in parts[1:])
+from app.core.utils.helpers import to_camel_case
 
 
 class Task(Base):
@@ -42,11 +38,11 @@ class TaskCreate(BaseModel):
     is_recurring: bool = False
     recurrence_days: Optional[int] = None
 
-    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 
 
 class TaskRead(TaskCreate):
     id: int
     model_config = ConfigDict(
-        from_attributes=True, alias_generator=_to_camel, populate_by_name=True
+        from_attributes=True, alias_generator=to_camel_case, populate_by_name=True
     )
