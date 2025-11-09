@@ -10,3 +10,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
     pass
+
+
+def get_db():
+    """Yield a SQLAlchemy session and ensure it's closed afterwards."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

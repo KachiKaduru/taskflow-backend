@@ -4,9 +4,14 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, ForeignKey
 
 from app.db.schema import Base
+
+
+def _to_camel(s: str) -> str:
+    parts = s.split("_")
+    return parts[0] + "".join(p.title() for p in parts[1:])
 
 
 class Event(Base):
@@ -18,6 +23,7 @@ class Event(Base):
     __tablename__ = "events"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     location = Column(String(255), nullable=True)
@@ -40,9 +46,13 @@ class EventCreate(BaseModel):
     is_virtual: bool = False
     event_type: Optional[str] = None
 
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
 
 class EventRead(EventCreate):
     id: int
 
-    # Use pydantic v2 config to allow reading from ORM objects
-    model_config = ConfigDict(from_attributes=True)
+    # Allow building from ORM attributes and output aliases in camelCase
+    model_config = ConfigDict(
+        from_attributes=True, alias_generator=_to_camel, populate_by_name=True
+    )
