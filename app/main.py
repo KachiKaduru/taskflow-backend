@@ -1,10 +1,7 @@
 from fastapi import FastAPI
 
 from app.db.schema import Base, engine
-from app.api import events as events_api  # type: ignore
-from app.api import tasks as tasks_api  # type: ignore
-from app.api import appointments as appts_api  # type: ignore
-
+from app.api import appointments, events, tasks
 
 app = FastAPI()
 
@@ -16,6 +13,6 @@ def on_startup():
 
 
 # Include routers
-app.include_router(events_api.router)
-app.include_router(tasks_api.router)
-app.include_router(appts_api.router)
+app.include_router(events.router)
+app.include_router(tasks.router)
+app.include_router(appointments.router)
