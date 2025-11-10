@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Optional
+import uuid
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, ForeignKey
+from sqlalchemy import Boolean, Column, DateTime, String, Text, ForeignKey
 
 from app.db.schema import Base
 from app.core.utils.helpers import to_camel_case
@@ -13,8 +12,11 @@ from app.core.utils.helpers import to_camel_case
 class Event(Base):
     __tablename__ = "events"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    event_id = Column(
+        String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     location = Column(String(255), nullable=True)
@@ -24,7 +26,7 @@ class Event(Base):
     event_type = Column(String(100), nullable=True)
 
     def __repr__(self) -> str:  # pragma: no cover - tiny helper
-        return f"<Event id={self.id} title={self.title!r}>"
+        return f"<Event id={self.event_id} title={self.title!r}>"
 
 
 # Pydantic models (v2) for request/response shapes
@@ -41,9 +43,7 @@ class EventCreate(BaseModel):
 
 
 class EventRead(EventCreate):
-    id: int
-
-    # Allow building from ORM attributes and output aliases in camelCase
+    id: uuid.UUID
     model_config = ConfigDict(
         from_attributes=True, alias_generator=to_camel_case, populate_by_name=True
     )

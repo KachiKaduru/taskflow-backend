@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Optional
+import uuid
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, ForeignKey
 
 from app.db.schema import Base
 from app.core.utils.helpers import to_camel_case
@@ -13,8 +12,11 @@ from app.core.utils.helpers import to_camel_case
 class Task(Base):
     __tablename__ = "tasks"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    task_id = Column(
+        String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     due_date = Column(DateTime(timezone=False), nullable=True)
@@ -25,7 +27,7 @@ class Task(Base):
     recurrence_days = Column(Integer, nullable=True)
 
     def __repr__(self) -> str:  # pragma: no cover - tiny helper
-        return f"<Task id={self.id} title={self.title!r}>"
+        return f"<Task id={self.task_id} title={self.title!r}>"
 
 
 class TaskCreate(BaseModel):
@@ -42,7 +44,7 @@ class TaskCreate(BaseModel):
 
 
 class TaskRead(TaskCreate):
-    id: int
+    id: uuid.UUID
     model_config = ConfigDict(
         from_attributes=True, alias_generator=to_camel_case, populate_by_name=True
     )

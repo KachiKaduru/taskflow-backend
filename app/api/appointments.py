@@ -12,7 +12,9 @@ router = APIRouter(prefix="/appointments", tags=["Appointments"])
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
 
-@router.post("/", response_model=AppointmentRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/create", response_model=AppointmentRead, status_code=status.HTTP_201_CREATED
+)
 async def create_appointment(
     appt: AppointmentCreate,
     db: db_dependency,
@@ -25,20 +27,25 @@ async def create_appointment(
     db.add(db_appt)
     db.commit()
     db.refresh(db_appt)
-    return db_appt
 
 
-@router.get("/", response_model=List[AppointmentRead], status_code=status.HTTP_200_OK)
+@router.get(
+    "/all", response_model=List[AppointmentRead], status_code=status.HTTP_200_OK
+)
 async def get_all_appointments(db: db_dependency, user: user_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Unauthorized access")
+
     appts = db.query(Appointment).filter(Appointment.user_id == user["id"]).all()
+
     return appts
 
 
 @router.get(
-    "/{appointment_id}", response_model=AppointmentRead, status_code=status.HTTP_200_OK
+    "/{appt_id}", response_model=AppointmentRead, status_code=status.HTTP_200_OK
 )
 async def get_single_appointment(
-    appointment_id: int, db: db_dependency, user: user_dependency
+    appt_id: str, db: db_dependency, user: user_dependency
 ):
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized access")
@@ -46,7 +53,7 @@ async def get_single_appointment(
     appointment = (
         db.query(Appointment)
         .filter(Appointment.user_id == user["id"])
-        .filter(Appointment.id == appointment_id)
+        .filter(Appointment.appt_id == appt_id)
         .first()
     )
 

@@ -1,65 +1,147 @@
+from datetime import timedelta, datetime, timezone
+import datetime
 import os
-from typing import Optional
+from typing import Annotated, List
 
-from fastapi import Depends, Header, HTTPException, status
-
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
 import jwt
+from jwt.exceptions import InvalidTokenError
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+from app.db.schema import db_dependency, get_db
+from app.models.users import Users, UsersCreate, UsersRead
+
+# SECRET_KEY=f416585b384264a566bcd1158680145ee6e9c8c060dabae31b4352e1fc0d5eb5
+
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback_dev_secret_key_change_me")
 ALGORITHM = "HS256"
 
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/token")
 
-def create_access_token(subject: str) -> str:
-    """Create a simple JWT with the subject (user id or identifier).
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-    This is a tiny helper for tests. In production use stronger signing and expirations.
-    """
-    token = jwt.encode({"sub": str(subject)}, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_access_token(id: str, name: str, email: str, expires_in: timedelta) -> str:
+    expires = datetime.datetime.now(timezone.utc) + expires_in
+
+    encoded = {"id": id, "name": name, "email": email, "exp": expires}
+    token = jwt.encode(encoded, SECRET_KEY, algorithm=ALGORITHM)
+
     return token
 
 
-def get_current_user(
-    authorization: Optional[str] = Header(None), x_user_id: Optional[str] = Header(None)
-):
-    """Very small auth stub.
-
-    Supports passing a JWT in the Authorization header (Bearer <token>), or an X-User-Id header
-    for quick local testing. Returns a dict with at least `id` key.
-    """
-    # Quick path: allow X-User-Id for dev convenience
-    if x_user_id:
-        try:
-            return {"id": int(x_user_id)}
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid X-User-Id header",
-            )
-
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header",
-        )
-
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Authorization header",
-        )
-
-    token = parts[1]
+async def get_current_user(
+    token: str = Depends(oauth2_bearer), db: Session = Depends(get_db)
+) -> Users:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        sub = payload.get("sub")
-        if not sub:
+        user_id = payload.get("id")
+
+        if user_id is None:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
             )
-        return {"id": int(sub)}
-    except jwt.PyJWTError:
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+
+    user = db.query(Users).filter(Users.id == user_id).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return user
+
+
+def authenticate_user(email: str, password: str, db) -> Users:
+    user = db.query(Users).filter(Users.email == email).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not pwd_context.verify(password, str(user.hashed_password)):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
+
+
+@router.post("/token", status_code=status.HTTP_200_OK)
+async def login(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency
+) -> dict:
+    user = authenticate_user(form_data.username, form_data.password, db)
+
+    access_token = create_access_token(
+        id=str(user.id),
+        name=str(user.name),
+        email=str(user.email),
+        expires_in=timedelta(hours=24),
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/create-user", status_code=status.HTTP_201_CREATED)
+async def create_user(user: UsersCreate, db: db_dependency):
+    existing_user = db.query(Users).filter(Users.email == user.email).first()
+
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered",
+        )
+
+    hashed_password = pwd_context.hash(user.password)
+    new_user = Users(
+        name=user.name,
+        email=user.email,
+        image=user.image,
+        hashed_password=hashed_password,
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+
+@router.get("/users", response_model=List[UsersRead], status_code=status.HTTP_200_OK)
+async def get_users(db: db_dependency) -> List[Users]:
+    users = db.query(Users).all()
+    return users
+
+
+@router.get(
+    "/users/{user_id}", response_model=UsersRead, status_code=status.HTTP_200_OK
+)
+async def get_user(user_id: str, db: db_dependency) -> Users:
+    user = db.query(Users).filter(Users.id == user_id).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    return user
