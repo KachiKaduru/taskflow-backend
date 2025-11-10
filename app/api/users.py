@@ -6,6 +6,7 @@ from app.core.auth import get_current_user
 from app.db.schema import db_dependency
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
 

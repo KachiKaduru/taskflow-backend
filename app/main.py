@@ -1,21 +1,23 @@
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 
 from app.db.schema import Base, engine
 from app.api import appointments, events, tasks
-
 from app.core import auth
-
-app = FastAPI()
 
 load_dotenv()
 
 
-@app.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup actions can be added here
     Base.metadata.create_all(bind=engine)
-    # Ensure tables exist (SQLite for now). Importing models registers them on Base.
+    yield
+    # Shutdown actions can be added here
 
+
+app = FastAPI(lifespan=lifespan)
 
 # Include routers
 app.include_router(auth.router)

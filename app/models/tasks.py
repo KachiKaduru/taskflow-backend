@@ -20,7 +20,6 @@ class Task(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     due_date = Column(DateTime(timezone=False), nullable=True)
-    created_at = Column(DateTime(timezone=False), nullable=False)
     is_completed = Column(Boolean, default=False, nullable=False)
     is_priority = Column(Boolean, default=False, nullable=False)
     is_recurring = Column(Boolean, default=False, nullable=False)
@@ -34,7 +33,6 @@ class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     due_date: Optional[datetime] = None
-    created_at: datetime
     is_completed: bool = False
     is_priority: bool = False
     is_recurring: bool = False
@@ -44,7 +42,7 @@ class TaskCreate(BaseModel):
 
 
 class TaskRead(TaskCreate):
-    id: uuid.UUID
+    task_id: uuid.UUID
     model_config = ConfigDict(
         from_attributes=True, alias_generator=to_camel_case, populate_by_name=True
     )

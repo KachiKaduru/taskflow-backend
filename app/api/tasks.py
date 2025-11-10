@@ -10,7 +10,6 @@ from app.models.tasks import Task, TaskCreate, TaskRead
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
-print(user_dependency)
 
 
 @router.post("/create", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
@@ -18,11 +17,13 @@ async def create_task(task: TaskCreate, db: db_dependency, user: user_dependency
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized access")
 
-    db_task = Task(**task.model_dump(), user_id=user.get("id"))
+    db_task = Task(**task.model_dump(), user_id=user["id"])
 
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
+
+    return db_task
 
 
 @router.get("/all", response_model=List[TaskRead], status_code=status.HTTP_200_OK)

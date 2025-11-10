@@ -35,17 +35,23 @@ def create_access_token(id: str, name: str, email: str, expires_in: timedelta) -
 
 async def get_current_user(
     token: str = Depends(oauth2_bearer), db: Session = Depends(get_db)
-) -> Users:
+):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("id")
 
-        if user_id is None:
+        if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+        return {
+            "id": user_id,
+            "name": payload.get("name"),
+            "email": payload.get("email"),
+        }
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -53,20 +59,13 @@ async def get_current_user(
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
     except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    user = db.query(Users).filter(Users.id == user_id).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    return user
 
 
 def authenticate_user(email: str, password: str, db) -> Users:
