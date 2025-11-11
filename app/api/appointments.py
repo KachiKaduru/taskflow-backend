@@ -28,6 +28,8 @@ async def create_appointment(
     db.commit()
     db.refresh(db_appt)
 
+    return db_appt
+
 
 @router.get(
     "/all", response_model=List[AppointmentRead], status_code=status.HTTP_200_OK
@@ -57,4 +59,53 @@ async def get_single_appointment(
         .first()
     )
 
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
     return appointment
+
+
+@router.put("/update/{appt_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_appointment(
+    appt_id: str,
+    updated_appt: AppointmentCreate,
+    db: db_dependency,
+    user: user_dependency,
+):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Unauthorized access")
+
+    appointment_model = (
+        db.query(Appointment)
+        .filter(Appointment.user_id == user["id"])
+        .filter(Appointment.appt_id == appt_id)
+        .first()
+    )
+
+    if appointment_model is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    for key, value in updated_appt.model_dump().items():
+        setattr(appointment_model, key, value)
+
+    db.commit()
+    db.refresh(appointment_model)
+
+
+@router.delete("/delete/{appt_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_appointment(appt_id: str, db: db_dependency, user: user_dependency):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Unauthorized access")
+
+    appointment_model = (
+        db.query(Appointment)
+        .filter(Appointment.user_id == user["id"])
+        .filter(Appointment.appt_id == appt_id)
+        .first()
+    )
+
+    if appointment_model is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    db.delete(appointment_model)
+    db.commit()

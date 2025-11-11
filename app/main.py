@@ -1,12 +1,12 @@
-from fastapi import FastAPI
 from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 from app.db.schema import Base, engine
 from app.api import appointments, events, tasks
 from app.core import auth
-
-load_dotenv()
 
 
 @asynccontextmanager

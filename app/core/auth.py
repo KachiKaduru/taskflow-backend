@@ -6,16 +6,19 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
 import jwt
 from jwt.exceptions import InvalidTokenError
 
-from app.db.schema import db_dependency, get_db
+from app.db.schema import db_dependency
 from app.models.users import Users, UsersCreate, UsersRead
 
 # SECRET_KEY=f416585b384264a566bcd1158680145ee6e9c8c060dabae31b4352e1fc0d5eb5
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback_dev_secret_key_change_me")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError(
+        "SECRET_KEY environment variable is not set. Please check your .env file."
+    )
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
@@ -33,9 +36,7 @@ def create_access_token(id: str, name: str, email: str, expires_in: timedelta) -
     return token
 
 
-async def get_current_user(
-    token: str = Depends(oauth2_bearer), db: Session = Depends(get_db)
-):
+async def get_current_user(token: str = Depends(oauth2_bearer)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("id")
