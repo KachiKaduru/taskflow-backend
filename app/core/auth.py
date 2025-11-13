@@ -106,6 +106,8 @@ async def login(
 
 @router.post("/create-user", status_code=status.HTTP_201_CREATED)
 async def create_user(user: UsersCreate, db: db_dependency):
+    from datetime import datetime
+
     existing_user = db.query(Users).filter(Users.email == user.email).first()
 
     if existing_user:
@@ -120,6 +122,8 @@ async def create_user(user: UsersCreate, db: db_dependency):
         email=user.email,
         image=user.image,
         hashed_password=hashed_password,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
 
     db.add(new_user)

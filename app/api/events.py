@@ -1,4 +1,5 @@
 from typing import Annotated, List
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from starlette import status
@@ -9,16 +10,21 @@ from app.models.events import Event, EventCreate, EventRead
 
 router = APIRouter(prefix="/events", tags=["Events"])
 
-user_dependency = Annotated[dict, Depends(get_current_user)]
+user_dependency = Depends(get_current_user)
 
 
 # CREATE
 @router.post("/create", response_model=EventRead, status_code=status.HTTP_201_CREATED)
-async def create_event(event: EventCreate, db: db_dependency, user: user_dependency):
+async def create_event(event: EventCreate, db: db_dependency, user=user_dependency):
+
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized access")
 
-    db_event = Event(**event.model_dump(), user_id=user["id"])
+    event_data = event.model_dump()
+    event_data["user_id"] = user["id"]
+    event_data["created_at"] = datetime.now(timezone.utc)
+    event_data["updated_at"] = datetime.now(timezone.utc)
+    db_event = Event(**event_data)
 
     db.add(db_event)
     db.commit()
@@ -29,7 +35,7 @@ async def create_event(event: EventCreate, db: db_dependency, user: user_depende
 
 # READ
 @router.get("/all", response_model=List[EventRead], status_code=status.HTTP_200_OK)
-async def get_all_events(db: db_dependency, user: user_dependency):
+async def get_all_events(db: db_dependency, user=user_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized access")
 
@@ -39,14 +45,14 @@ async def get_all_events(db: db_dependency, user: user_dependency):
 
 
 @router.get("/{event_id}", response_model=EventRead, status_code=status.HTTP_200_OK)
-async def get_single_event(event_id: str, db: db_dependency, user: user_dependency):
+async def get_single_event(event_id: str, db: db_dependency, user=user_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized access")
 
     event = (
         db.query(Event)
         .filter(Event.user_id == user["id"])
-        .filter(Event.event_id == event_id)
+        .filter(Event.id == event_id)
         .first()
     )
 
@@ -62,7 +68,7 @@ async def update_event(
     event_id: str,
     updated_event: EventCreate,
     db: db_dependency,
-    user: user_dependency,
+    user=user_dependency,
 ):
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized access")
@@ -70,14 +76,17 @@ async def update_event(
     event = (
         db.query(Event)
         .filter(Event.user_id == user["id"])
-        .filter(Event.event_id == event_id)
+        .filter(Event.id == event_id)
         .first()
     )
 
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    for key, value in updated_event.model_dump().items():
+    updated_event_data = updated_event.model_dump()
+    updated_event_data["updated_at"] = datetime.now(timezone.utc)
+
+    for key, value in updated_event_data.items():
         setattr(event, key, value)
 
     db.commit()
@@ -86,14 +95,14 @@ async def update_event(
 
 # DELETE
 @router.delete("/delete/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_event(event_id: str, db: db_dependency, user: user_dependency):
+async def delete_event(event_id: str, db: db_dependency, user=user_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized access")
 
     event_model = (
         db.query(Event)
         .filter(Event.user_id == user["id"])
-        .filter(Event.event_id == event_id)
+        .filter(Event.id == event_id)
         .first()
     )
 
