@@ -21,13 +21,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# CORS middleware - Update origins with your frontend URLs
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # Local development
-        "https://taskflow-inc.vercel.app",  # Your Vercel deployment
-        # Add more origins as needed
+        "http://localhost:3000",
+        "https://taskflow-inc.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
