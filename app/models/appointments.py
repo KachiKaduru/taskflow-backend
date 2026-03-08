@@ -33,7 +33,7 @@ class Appointment(Base):
     )  # Store time as string (e.g., "14:30")
     duration = Column[int](Integer, nullable=True)
     status = Column[str](String(50), nullable=True)  # AppointmentStatus enum
-    with_person = Column[str](String(255), nullable=True)
+    with_person = Column[str](String(255), nullable=True) 
     notes = Column[str](Text, nullable=True)
     preparation_time = Column[int](Integer, nullable=True)
     created_at = Column[datetime](
